@@ -1,5 +1,8 @@
 """Shared utilities for CMIP6 download scripts."""
 
+import subprocess
+from datetime import date
+from pathlib import Path
 import numpy as np
 import xarray as xr
 import cftime
@@ -47,6 +50,47 @@ def get_valid_pairs(df_var):
     )
     valid = valid[valid["experiment_id"]].drop(columns=["experiment_id"])
     return valid[~valid["institution_id"].isin(EXCLUDED_INSTITUTIONS)]
+
+
+def append_run_summary(notes_path, script_name, n_written, n_existed,
+                       dropped_members, skipped_experiments):
+    """Prepend a run summary entry to NOTES.md (after the header)."""
+    try:
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).parent, stderr=subprocess.DEVNULL,
+        ).decode().strip()
+    except Exception:
+        git_hash = "unknown"
+
+    lines = [
+        f"## {date.today()} — {script_name}",
+        f"- Git: {git_hash}  |  Written: {n_written}  |  Skipped (existed): {n_existed}",
+    ]
+    if dropped_members:
+        lines.append(f"- Dropped (NaN): " + ", ".join(
+            f"{inst} {src} {exp} {mem}" for inst, src, exp, mem in dropped_members
+        ))
+    else:
+        lines.append("- Dropped (NaN): 0")
+    if skipped_experiments:
+        lines.append(f"- No members: " + ", ".join(
+            f"{inst} {src} {exp}" for inst, src, exp in skipped_experiments
+        ))
+    else:
+        lines.append("- No members: 0")
+
+    entry = "\n".join(lines) + "\n\n"
+    header = "# Project Notes\n\n"
+    notes_path = Path(notes_path)
+    if notes_path.exists():
+        content = notes_path.read_text()
+        if content.startswith(header):
+            notes_path.write_text(header + entry + content[len(header):])
+        else:
+            notes_path.write_text(content + entry)
+    else:
+        notes_path.write_text(header + entry)
 
 
 def open_member(zstore_path):

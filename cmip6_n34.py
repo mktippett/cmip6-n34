@@ -11,7 +11,7 @@ import pandas as pd
 
 from cmip6_utils import (
     REQUIRED_EXPERIMENTS, COMP,
-    get_valid_pairs, open_member,
+    get_valid_pairs, open_member, append_run_summary,
 )
 
 N34_DIR = Path(__file__).parent / "n34_data"
@@ -43,6 +43,9 @@ if args.source:
 print(f"Models: {len(valid_pairs)}")
 
 dropped_members = []
+skipped_experiments = []
+n_written = 0
+n_existed = 0
 
 for institution_id, source_id in zip(valid_pairs["institution_id"], valid_pairs["source_id"]):
     print()
@@ -73,6 +76,7 @@ for institution_id, source_id in zip(valid_pairs["institution_id"], valid_pairs[
 
         if not n34_list:
             print("\n  [SKIPPED: no members]")
+            skipped_experiments.append((institution_id, source_id, experiment_id))
             continue
 
         ds_out = xr.merge(n34_list)
@@ -86,13 +90,20 @@ for institution_id, source_id in zip(valid_pairs["institution_id"], valid_pairs[
         filename = N34_DIR / f"n34_{institution_id}_{source_id}_{experiment_id}.nc"
         if filename.exists():
             print("\n  [SKIP: file exists]")
+            n_existed += 1
             continue
         print()
         print(filename)
         ds_out.to_netcdf(filename.with_suffix(".tmp"))
         filename.with_suffix(".tmp").rename(filename)
+        n_written += 1
 
 print("\n--- Dropped members (missing data) ---")
 for item in dropped_members:
     print("  %s  %s  %s  %s" % item)
 print(f"Total dropped: {len(dropped_members)}")
+
+append_run_summary(
+    N34_DIR.parent / "NOTES.md", "cmip6_n34.py",
+    n_written, n_existed, dropped_members, skipped_experiments,
+)

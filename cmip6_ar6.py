@@ -30,7 +30,8 @@ def ar6_averages(tas, mask3d, lat_weights):
     lat_weights: DataArray (lat,)
     Returns:     DataArray (time, region)
     """
-    mask_f = mask3d.astype(float)
+    # Explicit chunks prevent dask auto-chunk failures on models with many time chunks
+    mask_f = mask3d.astype(float).chunk({"region": -1, "lat": -1, "lon": -1})
     numerator   = xr.dot(tas * lat_weights, mask_f, dims=["lat", "lon"])
     denominator = (lat_weights * mask_f).sum(["lat", "lon"])
     return numerator / denominator

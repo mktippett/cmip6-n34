@@ -1,5 +1,8 @@
 # Project Notes
 
+## 2026-05-19 — QC check (n34)
+- 248 files, 0 flags (range 250–315 K, std > 0.1 K)
+
 ## 2026-05-19 — code changes
 - Fixed EC-Earth3 dask ZeroDivisionError: explicitly chunk mask3d before xr.dot
 - Added --institution/--source CLI args to both download scripts for targeted reruns

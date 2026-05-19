@@ -5,6 +5,7 @@ Output: one NetCDF per model/experiment with tas(member_id, region, time).
 """
 
 from pathlib import Path
+import argparse
 import numpy as np
 import xarray as xr
 import regionmask
@@ -35,14 +36,21 @@ def ar6_averages(tas, mask3d, lat_weights):
     return numerator / denominator
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--institution", help="Restrict to one institution_id")
+parser.add_argument("--source",      help="Restrict to one source_id")
+args = parser.parse_args()
+
 df = pd.read_csv("https://cmip6.storage.googleapis.com/pangeo-cmip6.csv")
 print(f"Catalog rows: {len(df)}")
 
 df_tas = df.query("variable_id == 'tas' & table_id == 'Amon'").copy()
 valid_pairs = get_valid_pairs(df_tas)
+if args.institution:
+    valid_pairs = valid_pairs[valid_pairs["institution_id"] == args.institution]
+if args.source:
+    valid_pairs = valid_pairs[valid_pairs["source_id"] == args.source]
 print(f"Models: {len(valid_pairs)}")
-
-#valid_pairs = valid_pairs.iloc[0:2, :]
 
 dropped_members = []
 

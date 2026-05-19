@@ -4,6 +4,7 @@
 # From https://tutorial.xarray.dev/intermediate/remote_data/cmip6-cloud.html
 
 from pathlib import Path
+import argparse
 import numpy as np
 import xarray as xr
 import pandas as pd
@@ -25,14 +26,21 @@ def n34_average(x):
     return y
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--institution", help="Restrict to one institution_id")
+parser.add_argument("--source",      help="Restrict to one source_id")
+args = parser.parse_args()
+
 df = pd.read_csv("https://cmip6.storage.googleapis.com/pangeo-cmip6.csv")
 print(f"Catalog rows: {len(df)}")
 
 df_ts = df.query("variable_id == 'ts' & table_id == 'Amon'").copy()
 valid_pairs = get_valid_pairs(df_ts)
+if args.institution:
+    valid_pairs = valid_pairs[valid_pairs["institution_id"] == args.institution]
+if args.source:
+    valid_pairs = valid_pairs[valid_pairs["source_id"] == args.source]
 print(f"Models: {len(valid_pairs)}")
-
-#valid_pairs = valid_pairs.iloc[0:2, :]
 
 dropped_members = []
 

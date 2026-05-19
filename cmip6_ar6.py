@@ -118,7 +118,4 @@ for item in dropped_members:
     print("  %s  %s  %s  %s" % item)
 print(f"Total dropped: {len(dropped_members)}")
 
-append_run_summary(
-    AR6_DIR.parent / "NOTES.md", "cmip6_ar6.py",
-    n_written, n_existed, dropped_members, skipped_experiments,
-)
+append_run_summary("cmip6_ar6.py", n_written, n_existed, dropped_members, skipped_experiments)

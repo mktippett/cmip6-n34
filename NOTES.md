@@ -1,5 +1,9 @@
 # Project Notes
 
+## 2026-05-19 — AR6 validation vs ATLAS (AWI-CM-1-1-MR historical r1i1p1f1)
+- Mean |diff|: 0.107 °C  |  Max |diff|: 0.618 °C (EAN — East Antarctica)
+- Full table and time series plot: `validation_ar6.md`, `test_ar6_validation.pdf`
+
 ## 2026-05-19 — QC check (n34)
 - 248 files, 0 flags (range 250–315 K, std > 0.1 K)
 

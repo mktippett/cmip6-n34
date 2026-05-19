@@ -1,0 +1,28 @@
+# Climate data files (large binaries — regenerate by running the scripts)
+n34_data/
+ar6_data/
+*.nc
+*.zarr
+*.h5
+*.hdf5
+*.grib
+*.grb
+*.zip
+
+# Generated outputs
+*.pdf
+*.png
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*

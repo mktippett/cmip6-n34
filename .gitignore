@@ -13,6 +13,7 @@ ar6_data/
 *.pdf
 *.png
 *.log
+*.tmp
 
 # Python
 __pycache__/

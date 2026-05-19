@@ -76,9 +76,13 @@ for institution_id, source_id in zip(valid_pairs["institution_id"], valid_pairs[
 
         ds_out.encoding.update(COMP)
         filename = N34_DIR / f"n34_{institution_id}_{source_id}_{experiment_id}.nc"
+        if filename.exists():
+            print("\n  [SKIP: file exists]")
+            continue
         print()
         print(filename)
-        ds_out.to_netcdf(filename)
+        ds_out.to_netcdf(filename.with_suffix(".tmp"))
+        filename.with_suffix(".tmp").rename(filename)
 
 print("\n--- Dropped members (missing data) ---")
 for item in dropped_members:

@@ -1,5 +1,32 @@
 # Project Notes
 
+## 2026-06-11 — AR6 validation vs ATLAS (58 regions)
+- Mean |diff|: 0.097 °C  |  Max |diff|: 0.618 °C (EAN — East Antarctica)
+- All 58 AR6 regions (46 land + 12 ocean) now validated; ocean regions all within 0.17 °C
+- `ar6_data_46region_backup/` no longer needed — can be removed once confirmed
+- Full table and time series plot: `validation_ar6.md`, `test_ar6_validation.pdf`
+
+## 2026-06-11 — cmip6_ar6.py
+- Git: c79495d  |  Written: 264  |  Skipped (existed): 8
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-06-11 — code changes
+- AR6 regions: switched `cmip6_ar6.py` from `regionmask.defined_regions.ar6.land` (46 land regions) to `regionmask.defined_regions.ar6.all` (58 regions = 46 land + 12 ocean)
+- `tas` is global (2m air temp), so ocean regions are fully populated — no new NaN drops
+- Old 46-region `ar6_data/` (272 files) backed up to `ar6_data_46region_backup/`; spot-checked AWI-CM-1-1-MR (8 files, region size 58, ocean abbrevs present, 0 NaN); full 272-file regeneration in progress
+- README updated to reflect 58 regions (46 land + 12 ocean)
+
+## 2026-06-11 — cmip6_ar6.py
+- Git: c79495d  |  Written: 0  |  Skipped (existed): 8
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-06-11 — cmip6_ar6.py
+- Git: c79495d  |  Written: 8  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
 ## 2026-05-19 — AR6 validation vs ATLAS (AWI-CM-1-1-MR historical r1i1p1f1)
 - Mean |diff|: 0.107 °C  |  Max |diff|: 0.618 °C (EAN — East Antarctica)
 - Full table and time series plot: `validation_ar6.md`, `test_ar6_validation.pdf`

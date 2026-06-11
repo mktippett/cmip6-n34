@@ -19,7 +19,7 @@ from cmip6_utils import (
 AR6_DIR = Path(__file__).parent / "ar6_data"
 AR6_DIR.mkdir(exist_ok=True)
 
-ar6 = regionmask.defined_regions.ar6.land  # 46 AR6 WGI reference regions
+ar6 = regionmask.defined_regions.ar6.all  # 58 AR6 WGI reference regions (46 land + 12 ocean)
 
 
 def ar6_averages(tas, mask3d, lat_weights):

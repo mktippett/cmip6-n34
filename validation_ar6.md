@@ -1,11 +1,13 @@
 # AR6 Validation vs ATLAS
 
-**Date:** 2026-05-19  
+**Date:** 2026-06-11  
 **Reference:** ATLAS precomputed `tas` (land-sea), AWI-CM-1-1-MR historical r1i1p1f1  
 **Source:** https://github.com/SantanderMetGroup/ATLAS/tree/devel/datasets-aggregated-regionally  
 **Method:** ATLAS uses CDO conservative remapping to 1° before averaging; ours averages on the native atmospheric grid. Both use latitude-weighted means.
 
-**Summary:** Mean |diff| = 0.107 °C  |  Max |diff| = 0.618 °C (EAN)
+**Regions:** all 58 AR6 WGI reference regions (46 land + 12 ocean), via `regionmask.defined_regions.ar6.all`. ATLAS's land-sea CSV covers all 58 too, so all regions are validated here (previously only the 46 land regions).
+
+**Summary:** Mean |diff| = 0.097 °C  |  Max |diff| = 0.618 °C (EAN)
 
 | Region | ATLAS (°C) | Ours (°C) | Diff |
 |--------|----------:|----------:|-----:|
@@ -17,7 +19,7 @@
 | ENA | 12.57 | 12.63 | 0.07 |
 | NCA | 20.88 | 20.98 | 0.10 |
 | SCA | 26.10 | 26.08 | -0.03 |
-| CAR | 26.48 | 26.47 | -0.01 |
+| CAR | 26.48 | 26.48 | -0.00 |
 | NWS | 21.30 | 21.31 | 0.01 |
 | NSA | 25.75 | 25.74 | -0.01 |
 | NES | 24.07 | 24.11 | 0.05 |
@@ -55,5 +57,17 @@
 | NZ | 14.55 | 14.71 | 0.17 |
 | EAN | -29.75 | -29.14 | 0.62 |
 | WAN | -18.83 | -18.93 | -0.11 |
+| ARO | -13.62 | -13.60 | 0.02 |
+| NPO | 19.78 | 19.92 | 0.14 |
+| EPO | 26.05 | 26.02 | -0.03 |
+| SPO | 17.94 | 17.87 | -0.07 |
+| NAO | 19.01 | 19.08 | 0.07 |
+| EAO | 26.17 | 26.15 | -0.01 |
+| SAO | 17.78 | 17.75 | -0.03 |
+| ARS | 26.21 | 26.28 | 0.07 |
+| BOB | 27.41 | 27.41 | 0.00 |
+| EIO | 27.26 | 27.26 | -0.00 |
+| SIO | 22.04 | 21.87 | -0.17 |
+| SOO | 2.22 | 2.17 | -0.06 |
 
-The EAN outlier (0.62 °C) reflects different treatment of the Antarctic ice sheet boundary between conservative remapping and native-grid averaging. All other regions are within 0.4 °C.
+The EAN outlier (0.62 °C) reflects different treatment of the Antarctic ice sheet boundary between conservative remapping and native-grid averaging. All other regions (land and ocean) are within 0.4 °C; the 12 ocean regions are all within 0.17 °C.

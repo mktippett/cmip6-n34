@@ -3,7 +3,7 @@
 Downloads CMIP6 surface temperature from Google Cloud Storage and computes two sets of diagnostics:
 
 - **Niño 3.4 index** (`ts`, Amon) — latitude-weighted mean over 190–240°E, 5°S–5°N
-- **IPCC AR6 regional averages** (`tas`, Amon) — latitude-weighted means over all 46 AR6 WGI reference regions
+- **IPCC AR6 regional averages** (`tas`, Amon) — latitude-weighted means over all 58 AR6 WGI reference regions (46 land + 12 ocean)
 
 One NetCDF per model/experiment, retaining all available ensemble members.
 

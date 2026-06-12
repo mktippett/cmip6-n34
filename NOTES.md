@@ -1,5 +1,13 @@
 # Project Notes
 
+## 2026-06-12 — Add specs for download/QC scripts
+- Added behavioral specs (7-section format): `specs/cmip6_n34.md`,
+  `specs/cmip6_ar6.md`, `specs/qc_n34.md`
+- `cmip6_utils.py` shared helpers (open_member, get_valid_pairs,
+  convert_to_cftime_no_leap, append_run_summary) documented inline within
+  these specs rather than as a separate spec
+- No code changes — specs reflect code as of commit 2538d4c
+
 ## 2026-06-12 — AR6 validation: add RMSE and correlation
 - `test_ar6.py` now computes RMSE and Pearson correlation per region from the full
   monthly time series (1851-2014 overlap), in addition to the climatological-mean

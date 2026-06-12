@@ -1,5 +1,14 @@
 # Project Notes
 
+## 2026-06-12 — AR6 validation: add RMSE and correlation
+- `test_ar6.py` now computes RMSE and Pearson correlation per region from the full
+  monthly time series (1851-2014 overlap), in addition to the climatological-mean
+  Diff (bias)
+- Mean RMSE = 0.113 °C (max 0.631 °C, EAN)  |  Mean corr = 0.9999 (min 0.9987, SEAF)
+- RMSE tracks Diff closely everywhere — confirms differences are dominated by a
+  steady mean offset, not timing/variability mismatches
+- Updated `validation_ar6.md` and `run_test_ar6.log`
+
 ## 2026-06-11 — AR6 validation vs ATLAS (58 regions)
 - Mean |diff|: 0.097 °C  |  Max |diff|: 0.618 °C (EAN — East Antarctica)
 - All 58 AR6 regions (46 land + 12 ocean) now validated; ocean regions all within 0.17 °C

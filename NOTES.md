@@ -1,5 +1,30 @@
 # Project Notes
 
+## 2026-06-26 — lens2_ar6.py
+- Git: 2beab39  |  Written: 4  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-06-26 — lens2_ar6.py
+- Git: 2beab39  |  Written: 4  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-06-26 — lens2_ar6.py
+- Git: 2beab39  |  Written: 4  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-06-26 — lens2_n34.py
+- Git: 2beab39  |  Written: 4  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-06-26 — lens2_n34.py
+- Git: 2beab39  |  Written: 4  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
 ## 2026-06-12 — Add specs for download/QC scripts
 - Added behavioral specs (7-section format): `specs/cmip6_n34.md`,
   `specs/cmip6_ar6.md`, `specs/qc_n34.md`

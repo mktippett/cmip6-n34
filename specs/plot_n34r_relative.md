@@ -4,11 +4,14 @@
 
 Visualize the **scaled relative Niño 3.4 index** across every CMIP6 model that
 has both `historical` and `ssp585` in `n34r_data/` (see `specs/cmip6_n34r.md`),
-as a 3-panel figure: (1) a spaghetti plot spanning 1850-2100 with a shaded band
+as a 4-panel figure: (1) a spaghetti plot spanning 1850-2100 with a shaded band
 quantifying cross-model disagreement and how it evolves under ssp585 warming,
 (2) per-model, per-period ENSO variability (std of the scaled index) in the
-historical and end-of-century base periods, and (3) the ratio of the two,
-i.e. how much each model's simulated ENSO variability changes under warming.
+historical and end-of-century base periods, (3) the ratio of the two,
+i.e. how much each model's simulated ENSO variability changes under warming,
+and (4) per-model linear trend (OLS slope) of the scaled index in two 40-yr
+periods (1975-2014, 2031-2070), i.e. how much each model's ENSO-relative
+background state is drifting.
 
 ## 2. Inputs
 
@@ -24,7 +27,7 @@ has already written locally.
 
 | File | Contents | Format |
 |------|----------|--------|
-| `n34r_relative_spaghetti.pdf` | 3x1 figure. **Panel 1**: one gray line per model (scaled relative Niño 3.4 anomaly, 1850-2100, no legend) + a steelblue shaded spread band + dashed reference lines at y=0 and the 2014/2015 join. **Panel 2**: per model, two paired error-bar points (std of the scaled index in 1985-2014 vs. 2071-2100, gray vs. firebrick), models ordered by ascending 1985-2014 std. **Panel 3**: per model, one error-bar point (ratio std(2071-2100)/std(1985-2014)) + dashed y=1 reference line, models ordered by ascending ratio (independent of panel 2's order) | matplotlib, 150 dpi |
+| `n34r_relative_spaghetti.pdf` | 4x1 figure. **Panel 1**: one gray line per model (scaled relative Niño 3.4 anomaly, 1850-2100, no legend) + a steelblue shaded spread band + dashed reference lines at y=0 and the 2014/2015 join. **Panel 2**: per model, two paired error-bar points (std of the scaled index in 1985-2014 vs. 2071-2100, gray vs. firebrick), models ordered by ascending 1985-2014 std. **Panel 3**: per model, one error-bar point (ratio std(2071-2100)/std(1985-2014)) + dashed y=1 reference line, models ordered by ascending ratio (independent of panel 2's order). **Panel 4**: per model, two paired error-bar points (OLS trend of the scaled index in 1975-2014 vs. 2031-2070, K/decade, gray vs. firebrick) + dashed y=0 reference line, models ordered by ascending 1975-2014 trend | matplotlib, 150 dpi |
 | `n34r_relative_spaghetti.png` | Identical figure, raster | matplotlib, 150 dpi |
 | stdout | List of plotted `source_id`s; any models dropped for lacking a common member between historical/ssp585 | text |
 
@@ -71,6 +74,18 @@ has already written locally.
         percentile of `boot_ratio`.
       - All values stored in `std_records` (one dict per model) for panels
         2 and 3 to consume after the main loop.
+      - **Panel 4 statistics**, computed per model from the same `scaled`
+        series:
+        - `trend_hist_da = scaled.sel(time=slice(TREND_HIST_START, TREND_HIST_END))`,
+          `trend_future_da = scaled.sel(time=slice(TREND_FUTURE_START, TREND_FUTURE_END))`
+          (480 monthly values each, 1975-2014 and 2031-2070).
+        - `slope_hist = np.polyfit(trend_hist_x, trend_hist_y, 1)[0] * 10`
+          (K/decade; `trend_hist_x` is decimal year), same for `slope_future`.
+        - `boot_slope_hist = block_bootstrap_trend_draws(trend_hist_x, trend_hist_y, ...) * 10`,
+          same for `boot_slope_future` — see §4b. `ci_trend_hist`/`ci_trend_future`
+          are the `BOOT_CI` percentiles of each draw array.
+        - All values stored in `trend_records` (one dict per model) for
+          panel 4 to consume after the main loop.
 
 ### 4a. Moving-block bootstrap (`block_bootstrap_std_draws`)
 
@@ -88,6 +103,32 @@ One shared `rng = np.random.default_rng(BOOT_SEED)` stream is used across
 every model and both periods, drawn in the order `find_pairs` iterates
 models, historical before future per model — reran with the same seed
 reproduces the exact same CIs.
+
+### 4b. Paired moving-block bootstrap for the trend (`block_bootstrap_trend_draws`)
+
+For a 40-yr monthly series `values` paired with its `decimal_year` (length
+`n=480`, no missing months): block length `block_len = BOOT_BLOCK_YEARS * 12`
+(24 months, same block length as §4a); `n_blocks = ceil(n / block_len)`. For
+each of `N_BOOT` draws: sample `n_blocks` start indices uniformly from
+`[0, n - block_len]` with replacement, and for each start index concatenate
+the corresponding 24-month contiguous block of **(decimal_year, value) pairs
+together** (not values alone), trim both resampled arrays to length `n`,
+refit `np.polyfit(x_resampled, y_resampled, 1)[0]` to get one bootstrap slope.
+Returns the array of `N_BOOT` bootstrap slopes (K/yr, scaled to K/decade by
+the caller). This differs from §4a's `block_bootstrap_std_draws` in one
+essential way: std is order-invariant, so resampling raw values against a
+fixed time grid is valid, but a trend slope is order-dependent — resampling
+values alone and refitting against the *original* time grid would scramble
+the temporal structure the slope depends on. Keeping each block's
+(time, value) pairing intact preserves the local trend and autocorrelation
+within the block, while the block-to-block resampling still generates CI
+width from the series' block-scale variability. User-specified explicitly
+after being asked to choose between this pairs-preserving approach and a
+residual-based alternative (fit trend, block-resample residuals, add back,
+refit) — the user's phrasing ("bootstrap the pairs of (y, x) where x is
+time... that preserves the temporal structure") specifies the pairs approach.
+Uses the same shared `rng` stream as §4a (continues drawing from it, not a
+separate seed).
 
 3. Cross-model spread band (`cross_model_band`), computed **separately** for
    the historical segment (1850-2014) and the ssp585 segment (2015-2100) so
@@ -120,7 +161,13 @@ reproduces the exact same CIs.
    one `ax3.errorbar` series at integer x-positions with asymmetric `yerr`
    from `(ratio - ci_ratio_lo, ci_ratio_hi - ratio)`; dashed black line at
    y=1 (no-change reference); x-tick labels rotated 90°.
-8. Save both `.pdf` and `.png` (both panels + panel 1, one figure, one file
+8. **Panel 4**: sort `trend_records` by `trend_hist` ascending; plot two
+   `ax4.errorbar` series at integer x-positions `i - BAR_WIDTH/2` (1975-2014,
+   `COLOR_HIST`) and `i + BAR_WIDTH/2` (2031-2070, `COLOR_FUTURE`), asymmetric
+   `yerr` from each point's `(trend - ci_lo, ci_hi - trend)`; dashed black
+   line at y=0 (no-trend reference); x-tick labels rotated 90°; legend
+   distinguishes the two periods — same visual format as panel 2.
+9. Save both `.pdf` and `.png` (all four panels, one figure, one file
    pair — filenames unchanged from the single-panel version).
 
 ## 5. Constants & Scientific Rationale
@@ -149,6 +196,13 @@ reproduces the exact same CIs.
 | Band computed cross-model-first, not pooled with time | — | User explicitly corrected an earlier version that pooled all months+models together within the rolling window before taking the percentile — that blends inter-model spread with each model's own ENSO-phase (interannual) variability. Computing the percentile across models at each month first, then smoothing that curve in time, isolates model disagreement. |
 | Band drawn on top of the spaghetti lines (zorder above), with solid edge lines | — | An earlier version drew the band behind the lines; 31 overlapping gray lines at `alpha=0.5` fully occlude a fill sitting underneath, especially since the 10th-90th band sits exactly where line density is highest. Discovered when the user reported "I see no band" despite correct underlying values. |
 | `LINE_COLOR = "0.4"` | uniform gray, no per-model color | User-specified, replacing an earlier `gist_rainbow` per-model palette — with 31 unlabeled lines a categorical palette adds no identifiable information; gray also keeps the colored band visually distinct from the model lines. |
+| `TREND_HIST_START`, `TREND_HIST_END` | 1975, 2014 | User-specified period for panel 4's "historical" trend point; entirely within the historical segment. |
+| `TREND_FUTURE_START`, `TREND_FUTURE_END` | 2031, 2070 | User-specified period for panel 4's "future" trend point; entirely within the ssp585 segment; same 40-yr length as the historical trend period so the two slopes are directly comparable. |
+| Panel 4 trend series | `scaled` (same variance-matched series as panels 1-3), OLS slope in K/decade | User-specified: "use the rescaled n34r." Slope computed as `np.polyfit(decimal_year, scaled_values, 1)[0]`, in K/yr, then scaled ×10 to K/decade for readability given ~40-yr periods. |
+| Panel 4 bootstrap method | paired block bootstrap (§4b), not the raw-value bootstrap of §4a and not a residual bootstrap | User-specified explicitly after being asked to choose between the pairs-preserving approach and a residual-based alternative — see §4b rationale. |
+| Panel 4 bootstrap block length | `BOOT_BLOCK_YEARS = 2` (reused from §4a) | User-specified explicitly: reuse the same block length as panels 2/3 rather than introduce a separate trend-specific constant. |
+| Panel 4 layout | paired points per model (`BAR_WIDTH` offset, `COLOR_HIST`/`COLOR_FUTURE`), same visual format as panel 2 | User-specified: "add a 4th panel... in the same format at panels 2 and 3." |
+| Panel 4 model order | ascending by `trend_hist` (1975-2014 trend) | Mirrors panel 2's convention of ordering by the first-listed period's statistic. |
 
 ## 6. Edge Cases & Error Handling
 
@@ -184,13 +238,23 @@ reproduces the exact same CIs.
   equivalent to treating the pairing as a random matching, valid because the
   two draw arrays are independent and identically ordered only by RNG-draw
   sequence, not by any shared structure.
+- **Panel 4 assumes no missing months**: `block_bootstrap_trend_draws` treats
+  `trend_hist_da`/`trend_future_da` as exactly 480 contiguous monthly values
+  with no gaps, same assumption as §4a/panel 2-3; not observed in the current
+  31-model set.
+- **Panel 4's block bootstrap resamples x along with y**: unlike §4a, the
+  resampled time values `x_resampled` are not sorted and contain repeats
+  (some months drawn into multiple blocks, others never drawn) — this is
+  expected and correct for OLS, which only depends on the `(x, y)`
+  correspondence within a draw, not on `x` being sorted or unique.
 
 ## 7. Synchronization Log
 
 | Date | Code change | Spec updated |
 |------|-------------|---------------|
 | 2026-08-25 | `plot_n34r_relative.py` created and iterated over one session: fixed 20-model list → scan-all-available (31 models); added variance-matching scale factor (1985-2014 base, per calendar month); added cross-model spread band (10th-90th percentile, 10-yr centered rolling mean, computed separately either side of 2014/2015); fixed FGOALS-g3 historical/ssp585 time overlap; fixed band-hidden-behind-lines rendering bug; switched line color to uniform gray; added PNG output alongside PDF | Spec created (initial) |
-| 2026-08-25 | Added panel 2 (per-model std of scaled index, 1985-2014 vs. 2071-2100, paired error bars, 2-yr moving-block bootstrap 95% CI, models ordered by ascending historical std) and panel 3 (ratio std(future)/std(hist), single error bar per model, paired-draw bootstrap CI reusing panel 2's draws, y=1 reference line, models ordered by ascending ratio) — figure is now 3x1; added `FUTURE_START`/`FUTURE_END`, `BOOT_BLOCK_YEARS`, `N_BOOT`, `BOOT_CI`, `BOOT_SEED`, `BAR_WIDTH`, `COLOR_HIST`, `COLOR_FUTURE`, `block_bootstrap_std_draws()` | This update (§1, §3, §4, §4a new, §5, §6) |
+| 2026-08-25 | Added panel 2 (per-model std of scaled index, 1985-2014 vs. 2071-2100, paired error bars, 2-yr moving-block bootstrap 95% CI, models ordered by ascending historical std) and panel 3 (ratio std(future)/std(hist), single error bar per model, paired-draw bootstrap CI reusing panel 2's draws, y=1 reference line, models ordered by ascending ratio) — figure is now 3x1; added `FUTURE_START`/`FUTURE_END`, `BOOT_BLOCK_YEARS`, `N_BOOT`, `BOOT_CI`, `BOOT_SEED`, `BAR_WIDTH`, `COLOR_HIST`, `COLOR_FUTURE`, `block_bootstrap_std_draws()` | Prior update (§1, §3, §4, §4a new, §5, §6) |
+| 2026-08-25 | Added panel 4 (per-model OLS trend of scaled index, 1975-2014 vs. 2031-2070, K/decade, paired error bars in panel 2's visual format, paired moving-block bootstrap 95% CI, y=0 reference line, models ordered by ascending 1975-2014 trend) — figure is now 4x1; added `TREND_HIST_START`/`TREND_HIST_END`, `TREND_FUTURE_START`/`TREND_FUTURE_END`, `trend_records`, `block_bootstrap_trend_draws()` | This update (§1, §3, §4, §4b new, §5, §6) |
 
 ## Verification Snippet
 

@@ -43,6 +43,11 @@ BAR_WIDTH = 0.35
 COLOR_HIST = "0.4"
 COLOR_FUTURE = "firebrick"
 
+# Panel 4: per-model linear trend (OLS slope) of scaled n34r in two 40-yr
+# periods, with a moving-block bootstrap CI (same block length as panel 2).
+TREND_HIST_START, TREND_HIST_END = 1975, 2014
+TREND_FUTURE_START, TREND_FUTURE_END = 2031, 2070
+
 FILENAME_RE = re.compile(r"n34r_(.+)_(.+)_(historical|ssp585)\.nc")
 MEMBER_RE = re.compile(r"r(\d+)i(\d+)p(\d+)f(\d+)")
 
@@ -111,11 +116,34 @@ def block_bootstrap_std_draws(values, block_years, n_boot, rng):
     return boot_std
 
 
+def block_bootstrap_trend_draws(decimal_year, values, block_years, n_boot, rng):
+    """Moving-block bootstrap draws of the OLS trend slope (K/yr) of `values` vs `decimal_year`.
+
+    Blocks of `block_years` (24 months) of (decimal_year, value) *pairs* are
+    drawn together with replacement and concatenated to length >= len(values),
+    then trimmed to match. Keeping each block's time/value pairing intact
+    preserves the local temporal structure (autocorrelation and local trend)
+    that an iid monthly pairs-resample would destroy; the OLS slope is refit
+    on each draw's own resampled time values, not the original time grid.
+    """
+    block_len = block_years * 12
+    n = len(values)
+    n_blocks = int(np.ceil(n / block_len))
+    max_start = n - block_len
+    boot_slope = np.empty(n_boot)
+    for b in range(n_boot):
+        starts = rng.integers(0, max_start + 1, size=n_blocks)
+        y_resampled = np.concatenate([values[s:s + block_len] for s in starts])[:n]
+        x_resampled = np.concatenate([decimal_year[s:s + block_len] for s in starts])[:n]
+        boot_slope[b] = np.polyfit(x_resampled, y_resampled, 1)[0]
+    return boot_slope
+
+
 pairs = find_pairs(N34R_DIR)
 LINE_COLOR = "0.4"
 rng = np.random.default_rng(BOOT_SEED)
 
-fig, (ax, ax2, ax3) = plt.subplots(3, 1, figsize=(11, 17), layout="constrained")
+fig, (ax, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(11, 22.7), layout="constrained")
 
 clim_start = cftime.DatetimeNoLeap(CLIM_START, 1, 1)
 clim_end = cftime.DatetimeNoLeap(CLIM_END, 12, 31)
@@ -123,8 +151,12 @@ future_start = cftime.DatetimeNoLeap(FUTURE_START, 1, 1)
 future_end = cftime.DatetimeNoLeap(FUTURE_END, 12, 31)
 hist_cutoff = cftime.DatetimeNoLeap(HIST_END_YEAR, 12, 31)
 plot_end = cftime.DatetimeNoLeap(PLOT_END_YEAR, 12, 31)
+trend_hist_start = cftime.DatetimeNoLeap(TREND_HIST_START, 1, 1)
+trend_hist_end = cftime.DatetimeNoLeap(TREND_HIST_END, 12, 31)
+trend_future_start = cftime.DatetimeNoLeap(TREND_FUTURE_START, 1, 1)
+trend_future_end = cftime.DatetimeNoLeap(TREND_FUTURE_END, 12, 31)
 
-plotted, missing_data, scaled_list, std_records = [], [], [], []
+plotted, missing_data, scaled_list, std_records, trend_records = [], [], [], [], []
 coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 for institution_id, source_id, hist_path, ssp_path in pairs:
@@ -182,6 +214,28 @@ for institution_id, source_id, hist_path, ssp_path in pairs:
         "std_hist": std_hist, "ci_hist": ci_hist,
         "std_future": std_future, "ci_future": ci_future,
         "ratio": ratio, "ci_ratio": ci_ratio,
+    })
+
+    trend_hist_da = scaled.sel(time=slice(trend_hist_start, trend_hist_end))
+    trend_future_da = scaled.sel(time=slice(trend_future_start, trend_future_end))
+    trend_hist_x = (trend_hist_da.time.dt.year + (trend_hist_da.time.dt.month - 1) / 12).values
+    trend_future_x = (trend_future_da.time.dt.year + (trend_future_da.time.dt.month - 1) / 12).values
+    trend_hist_y = trend_hist_da.values
+    trend_future_y = trend_future_da.values
+
+    slope_hist = np.polyfit(trend_hist_x, trend_hist_y, 1)[0] * 10  # K/decade
+    slope_future = np.polyfit(trend_future_x, trend_future_y, 1)[0] * 10
+    boot_slope_hist = block_bootstrap_trend_draws(
+        trend_hist_x, trend_hist_y, BOOT_BLOCK_YEARS, N_BOOT, rng) * 10
+    boot_slope_future = block_bootstrap_trend_draws(
+        trend_future_x, trend_future_y, BOOT_BLOCK_YEARS, N_BOOT, rng) * 10
+    ci_trend_hist = np.percentile(boot_slope_hist, BOOT_CI)
+    ci_trend_future = np.percentile(boot_slope_future, BOOT_CI)
+
+    trend_records.append({
+        "source_id": source_id,
+        "trend_hist": slope_hist, "ci_trend_hist": ci_trend_hist,
+        "trend_future": slope_future, "ci_trend_future": ci_trend_future,
     })
 
 if scaled_list:
@@ -261,6 +315,35 @@ ax3.set_title(
     f"models ordered by ratio, smallest to largest\n"
     f"Error bars: {int(BOOT_CI[1] - BOOT_CI[0])}% CI from {N_BOOT} paired "
     f"{BOOT_BLOCK_YEARS}-yr block-bootstrap draws of std(future)/std(hist)",
+    fontsize=10,
+)
+
+trend_records.sort(key=lambda r: r["trend_hist"])
+x4 = np.arange(len(trend_records))
+labels4 = [r["source_id"] for r in trend_records]
+
+trend_hist_arr = np.array([r["trend_hist"] for r in trend_records])
+trend_future_arr = np.array([r["trend_future"] for r in trend_records])
+err_trend_hist = np.array([[r["trend_hist"] - r["ci_trend_hist"][0], r["ci_trend_hist"][1] - r["trend_hist"]] for r in trend_records]).T
+err_trend_future = np.array([[r["trend_future"] - r["ci_trend_future"][0], r["ci_trend_future"][1] - r["trend_future"]] for r in trend_records]).T
+
+ax4.errorbar(x4 - BAR_WIDTH / 2, trend_hist_arr, yerr=err_trend_hist, fmt="o", ms=4, capsize=3,
+             color=COLOR_HIST, label=f"{TREND_HIST_START}-{TREND_HIST_END}", zorder=2)
+ax4.errorbar(x4 + BAR_WIDTH / 2, trend_future_arr, yerr=err_trend_future, fmt="o", ms=4, capsize=3,
+             color=COLOR_FUTURE, label=f"{TREND_FUTURE_START}-{TREND_FUTURE_END}", zorder=2)
+ax4.axhline(0, color="k", lw=1, ls="--", zorder=1)
+ax4.set_xticks(x4)
+ax4.set_xticklabels(labels4, rotation=90, fontsize=8)
+ax4.set_xlim(-0.5, len(trend_records) - 0.5)
+ax4.set_xlabel("Model")
+ax4.set_ylabel("Linear trend of scaled relative Niño 3.4 (K/decade)")
+ax4.legend(loc="upper left", fontsize=9)
+ax4.set_title(
+    f"Linear trend (OLS slope) of monthly scaled relative Niño 3.4, by model and period "
+    f"(n={len(trend_records)})\n"
+    f"Models ordered by {TREND_HIST_START}-{TREND_HIST_END} trend, smallest to largest\n"
+    f"Error bars: {BOOT_BLOCK_YEARS}-yr paired moving-block bootstrap {int(BOOT_CI[1] - BOOT_CI[0])}% CI "
+    f"({N_BOOT} resamples)",
     fontsize=10,
 )
 

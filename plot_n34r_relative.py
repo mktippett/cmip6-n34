@@ -23,6 +23,7 @@ OUT = Path(__file__).parent / "n34r_relative_spaghetti.pdf"
 OUT_PNG = OUT.with_suffix(".png")
 
 CLIM_START, CLIM_END = 1985, 2014
+FUTURE_START, FUTURE_END = 2071, 2100
 PLOT_START_YEAR = 1850
 PLOT_END_YEAR = 2100
 HIST_END_YEAR = 2014     # last year of the historical segment
@@ -30,6 +31,17 @@ SSP_START_YEAR = 2015    # first year of the ssp585 segment
 
 BAND_WINDOW_YEARS = 10   # centered rolling-mean window smoothing the cross-model spread curve
 BAND_LOW, BAND_HIGH = 0.10, 0.90  # percentile band, across models
+
+# Panel 2: per-model std(scaled n34r) in the historical and future base periods,
+# with a moving-block bootstrap 95% CI (block length preserves month-to-month
+# autocorrelation that an iid resample would destroy).
+BOOT_BLOCK_YEARS = 2
+N_BOOT = 1000
+BOOT_CI = (2.5, 97.5)
+BOOT_SEED = 42
+BAR_WIDTH = 0.35
+COLOR_HIST = "0.4"
+COLOR_FUTURE = "firebrick"
 
 FILENAME_RE = re.compile(r"n34r_(.+)_(.+)_(historical|ssp585)\.nc")
 MEMBER_RE = re.compile(r"r(\d+)i(\d+)p(\d+)f(\d+)")
@@ -79,17 +91,40 @@ def cross_model_band(segment, window_years):
     return decimal_year, smoothed.sel(quantile=BAND_LOW), smoothed.sel(quantile=BAND_HIGH)
 
 
+def block_bootstrap_std_draws(values, block_years, n_boot, rng):
+    """Moving-block bootstrap draws of std(values) (monthly series).
+
+    Blocks of `block_years` (24 months) are drawn with replacement and
+    concatenated to length >= len(values), then trimmed to match; this
+    preserves intra-block autocorrelation that an iid monthly resample
+    would destroy. `values` must have no missing months.
+    """
+    block_len = block_years * 12
+    n = len(values)
+    n_blocks = int(np.ceil(n / block_len))
+    max_start = n - block_len
+    boot_std = np.empty(n_boot)
+    for b in range(n_boot):
+        starts = rng.integers(0, max_start + 1, size=n_blocks)
+        resampled = np.concatenate([values[s:s + block_len] for s in starts])[:n]
+        boot_std[b] = resampled.std(ddof=0)
+    return boot_std
+
+
 pairs = find_pairs(N34R_DIR)
 LINE_COLOR = "0.4"
+rng = np.random.default_rng(BOOT_SEED)
 
-fig, ax = plt.subplots(figsize=(11, 6), layout="constrained")
+fig, (ax, ax2, ax3) = plt.subplots(3, 1, figsize=(11, 17), layout="constrained")
 
 clim_start = cftime.DatetimeNoLeap(CLIM_START, 1, 1)
 clim_end = cftime.DatetimeNoLeap(CLIM_END, 12, 31)
+future_start = cftime.DatetimeNoLeap(FUTURE_START, 1, 1)
+future_end = cftime.DatetimeNoLeap(FUTURE_END, 12, 31)
 hist_cutoff = cftime.DatetimeNoLeap(HIST_END_YEAR, 12, 31)
 plot_end = cftime.DatetimeNoLeap(PLOT_END_YEAR, 12, 31)
 
-plotted, missing_data, scaled_list = [], [], []
+plotted, missing_data, scaled_list, std_records = [], [], [], []
 coder = xr.coders.CFDatetimeCoder(use_cftime=True)
 
 for institution_id, source_id, hist_path, ssp_path in pairs:
@@ -125,6 +160,30 @@ for institution_id, source_id, hist_path, ssp_path in pairs:
     plotted.append(source_id)
     scaled_list.append(scaled)
 
+    hist_vals = scaled.sel(time=slice(clim_start, clim_end)).values
+    future_vals = scaled.sel(time=slice(future_start, future_end)).values
+    std_hist = hist_vals.std(ddof=0)
+    std_future = future_vals.std(ddof=0)
+    boot_hist = block_bootstrap_std_draws(hist_vals, BOOT_BLOCK_YEARS, N_BOOT, rng)
+    boot_future = block_bootstrap_std_draws(future_vals, BOOT_BLOCK_YEARS, N_BOOT, rng)
+    ci_hist = np.percentile(boot_hist, BOOT_CI)
+    ci_future = np.percentile(boot_future, BOOT_CI)
+
+    # Ratio's CI: pair the two periods' independent block-bootstrap std draws
+    # element-by-element into N_BOOT ratio draws, then take the percentile of
+    # that ratio distribution (the per-model scaling factor cancels in the
+    # ratio, so this is the same whether computed from n34r or scaled n34r).
+    ratio = std_future / std_hist
+    boot_ratio = boot_future / boot_hist
+    ci_ratio = np.percentile(boot_ratio, BOOT_CI)
+
+    std_records.append({
+        "source_id": source_id,
+        "std_hist": std_hist, "ci_hist": ci_hist,
+        "std_future": std_future, "ci_future": ci_future,
+        "ratio": ratio, "ci_ratio": ci_ratio,
+    })
+
 if scaled_list:
     combined = xr.concat(scaled_list, dim="model")
     for year_start, year_end in [(PLOT_START_YEAR, HIST_END_YEAR), (SSP_START_YEAR, PLOT_END_YEAR)]:
@@ -152,6 +211,56 @@ ax.set_title(
     f"Shading: {int(BAND_LOW*100)}th-{int(BAND_HIGH*100)}th percentile across models each "
     f"month, {BAND_WINDOW_YEARS}-yr centered rolling mean in time\n"
     f"(smoothed separately either side of the historical/ssp585 join, dashed line)",
+    fontsize=10,
+)
+
+std_records.sort(key=lambda r: r["std_hist"])
+x = np.arange(len(std_records))
+labels = [r["source_id"] for r in std_records]
+
+std_hist = np.array([r["std_hist"] for r in std_records])
+std_future = np.array([r["std_future"] for r in std_records])
+err_hist = np.array([[r["std_hist"] - r["ci_hist"][0], r["ci_hist"][1] - r["std_hist"]] for r in std_records]).T
+err_future = np.array([[r["std_future"] - r["ci_future"][0], r["ci_future"][1] - r["std_future"]] for r in std_records]).T
+
+ax2.errorbar(x - BAR_WIDTH / 2, std_hist, yerr=err_hist, fmt="o", ms=4, capsize=3,
+             color=COLOR_HIST, label=f"{CLIM_START}-{CLIM_END}", zorder=2)
+ax2.errorbar(x + BAR_WIDTH / 2, std_future, yerr=err_future, fmt="o", ms=4, capsize=3,
+             color=COLOR_FUTURE, label=f"{FUTURE_START}-{FUTURE_END}", zorder=2)
+ax2.set_xticks(x)
+ax2.set_xticklabels(labels, rotation=90, fontsize=8)
+ax2.set_xlim(-0.5, len(std_records) - 0.5)
+ax2.set_xlabel("Model")
+ax2.set_ylabel("std(scaled relative Niño 3.4) (K)")
+ax2.legend(loc="upper left", fontsize=9)
+ax2.set_title(
+    f"Monthly std of the scaled relative Niño 3.4 index, by model and period "
+    f"(n={len(std_records)})\n"
+    f"Models ordered by {CLIM_START}-{CLIM_END} std, smallest to largest\n"
+    f"Error bars: {BOOT_BLOCK_YEARS}-yr moving-block bootstrap {int(BOOT_CI[1] - BOOT_CI[0])}% CI "
+    f"({N_BOOT} resamples)",
+    fontsize=10,
+)
+
+records_by_ratio = sorted(std_records, key=lambda r: r["ratio"])
+x3 = np.arange(len(records_by_ratio))
+labels3 = [r["source_id"] for r in records_by_ratio]
+ratio = np.array([r["ratio"] for r in records_by_ratio])
+err_ratio = np.array([[r["ratio"] - r["ci_ratio"][0], r["ci_ratio"][1] - r["ratio"]] for r in records_by_ratio]).T
+
+ax3.errorbar(x3, ratio, yerr=err_ratio, fmt="o", ms=4, capsize=3, color="0.2", zorder=2)
+ax3.axhline(1, color="k", lw=1, ls="--", zorder=1)
+ax3.set_xticks(x3)
+ax3.set_xticklabels(labels3, rotation=90, fontsize=8)
+ax3.set_xlim(-0.5, len(records_by_ratio) - 0.5)
+ax3.set_xlabel("Model")
+ax3.set_ylabel(f"std({FUTURE_START}-{FUTURE_END}) / std({CLIM_START}-{CLIM_END})")
+ax3.set_title(
+    f"Ratio of future to historical std of relative Niño 3.4 (n={len(records_by_ratio)})\n"
+    f"Rescaling cancels in the ratio (same for n34r and scaled n34r); "
+    f"models ordered by ratio, smallest to largest\n"
+    f"Error bars: {int(BOOT_CI[1] - BOOT_CI[0])}% CI from {N_BOOT} paired "
+    f"{BOOT_BLOCK_YEARS}-yr block-bootstrap draws of std(future)/std(hist)",
     fontsize=10,
 )
 

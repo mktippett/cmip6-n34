@@ -4,9 +4,11 @@
 
 Visualize the **scaled relative Niño 3.4 index** across every CMIP6 model that
 has both `historical` and `ssp585` in `n34r_data/` (see `specs/cmip6_n34r.md`),
-as a single spaghetti plot spanning 1850-2100, with a shaded band quantifying
-how much the models disagree and how that disagreement evolves under ssp585
-warming.
+as a 3-panel figure: (1) a spaghetti plot spanning 1850-2100 with a shaded band
+quantifying cross-model disagreement and how it evolves under ssp585 warming,
+(2) per-model, per-period ENSO variability (std of the scaled index) in the
+historical and end-of-century base periods, and (3) the ratio of the two,
+i.e. how much each model's simulated ENSO variability changes under warming.
 
 ## 2. Inputs
 
@@ -22,7 +24,7 @@ has already written locally.
 
 | File | Contents | Format |
 |------|----------|--------|
-| `n34r_relative_spaghetti.pdf` | One axes: one gray line per model (scaled relative Niño 3.4 anomaly, 1850-2100, no legend) + a steelblue shaded spread band + dashed reference lines at y=0 and the 2014/2015 join | matplotlib, 150 dpi |
+| `n34r_relative_spaghetti.pdf` | 3x1 figure. **Panel 1**: one gray line per model (scaled relative Niño 3.4 anomaly, 1850-2100, no legend) + a steelblue shaded spread band + dashed reference lines at y=0 and the 2014/2015 join. **Panel 2**: per model, two paired error-bar points (std of the scaled index in 1985-2014 vs. 2071-2100, gray vs. firebrick), models ordered by ascending 1985-2014 std. **Panel 3**: per model, one error-bar point (ratio std(2071-2100)/std(1985-2014)) + dashed y=1 reference line, models ordered by ascending ratio (independent of panel 2's order) | matplotlib, 150 dpi |
 | `n34r_relative_spaghetti.png` | Identical figure, raster | matplotlib, 150 dpi |
 | stdout | List of plotted `source_id`s; any models dropped for lacking a common member between historical/ssp585 | text |
 
@@ -51,6 +53,42 @@ has already written locally.
    5. `anom = full.groupby("time.month") - clim`; `scaled = anom.groupby("time.month") * scale`.
    6. Plot `scaled` vs. decimal year as one gray line (`LINE_COLOR = "0.4"`,
       `alpha=0.5`, `lw=0.8`); append `scaled` to `scaled_list` for the band.
+   7. **Panel 2/3 statistics**, computed per model from this same `scaled`
+      series (the per-model variance-matching `scale` factor is common to
+      both periods, so it cancels in any std ratio — the panel-3 ratio would
+      be identical if computed from raw, unscaled `n34r`):
+      - `hist_vals = scaled.sel(time=slice(CLIM_START, CLIM_END))`,
+        `future_vals = scaled.sel(time=slice(FUTURE_START, FUTURE_END))`
+        (360 monthly values each).
+      - `std_hist = hist_vals.std(ddof=0)`, `std_future = future_vals.std(ddof=0)`.
+      - `boot_hist = block_bootstrap_std_draws(hist_vals, ...)`,
+        `boot_future = block_bootstrap_std_draws(future_vals, ...)` — see
+        §4a below. `ci_hist`/`ci_future` are the `BOOT_CI` percentiles of
+        each draw array.
+      - `ratio = std_future / std_hist`; `boot_ratio = boot_future / boot_hist`
+        (element-by-element pairing of the two periods' independent draw
+        arrays, not a fresh bootstrap); `ci_ratio` is the `BOOT_CI`
+        percentile of `boot_ratio`.
+      - All values stored in `std_records` (one dict per model) for panels
+        2 and 3 to consume after the main loop.
+
+### 4a. Moving-block bootstrap (`block_bootstrap_std_draws`)
+
+For a 30-yr monthly series `values` (length `n=360`, no missing months):
+block length `block_len = BOOT_BLOCK_YEARS * 12` (24 months);
+`n_blocks = ceil(n / block_len)`. For each of `N_BOOT` draws: sample
+`n_blocks` start indices uniformly from `[0, n - block_len]` with
+replacement (`rng.integers`), concatenate the corresponding 24-month
+contiguous blocks, trim to length `n`, compute `std(ddof=0)`. Returns the
+array of `N_BOOT` bootstrap std values (not yet reduced to a CI) so panel 3
+can reuse the same draws to build the ratio's CI. Blocks (rather than iid
+monthly resampling) preserve the ENSO-driven month-to-month autocorrelation
+in the series; destroying that would bias the bootstrap std distribution.
+One shared `rng = np.random.default_rng(BOOT_SEED)` stream is used across
+every model and both periods, drawn in the order `find_pairs` iterates
+models, historical before future per model — reran with the same seed
+reproduces the exact same CIs.
+
 3. Cross-model spread band (`cross_model_band`), computed **separately** for
    the historical segment (1850-2014) and the ssp585 segment (2015-2100) so
    the smoothing window never straddles the join:
@@ -69,9 +107,21 @@ has already written locally.
 4. Plot the band: `fill_between` (steelblue, alpha=0.3) plus solid boundary
    lines (steelblue, lw=1.3) for the low/high edges, all drawn at a higher
    zorder than the spaghetti lines — see §6, band visibility.
-5. Title/subtitle carries the methodology (base period, scaling formula,
-   band definition, window length) since there is no legend and no caption.
-6. Save both `.pdf` and `.png`.
+5. Panel 1 title/subtitle carries the methodology (base period, scaling
+   formula, band definition, window length) since there is no legend and no
+   caption.
+6. **Panel 2**: sort `std_records` by `std_hist` ascending; plot two
+   `ax2.errorbar` series at integer x-positions `i - BAR_WIDTH/2` (historical,
+   `COLOR_HIST`) and `i + BAR_WIDTH/2` (future, `COLOR_FUTURE`), asymmetric
+   `yerr` from each point's `(std - ci_lo, ci_hi - std)`; x-tick labels are
+   `source_id`, rotated 90°; legend distinguishes the two periods.
+7. **Panel 3**: sort a *separate* copy of `std_records` by `ratio` ascending
+   (independent of panel 2's order — panel 3 is its own model ordering); plot
+   one `ax3.errorbar` series at integer x-positions with asymmetric `yerr`
+   from `(ratio - ci_ratio_lo, ci_ratio_hi - ratio)`; dashed black line at
+   y=1 (no-change reference); x-tick labels rotated 90°.
+8. Save both `.pdf` and `.png` (both panels + panel 1, one figure, one file
+   pair — filenames unchanged from the single-panel version).
 
 ## 5. Constants & Scientific Rationale
 
@@ -80,6 +130,18 @@ has already written locally.
 | `CLIM_START`, `CLIM_END` | 1985, 2014 | User-specified anomaly base period; also used (same period) as the base for the variance-matching scale factor — confirmed explicitly with the user rather than assumed, since the request separately said "1985-2015" for the scaling factor, which would have pulled one year from ssp585 instead of historical. |
 | `PLOT_END_YEAR` | 2100 | ssp585 archives run to 2300 for some models (e.g. ACCESS-CM2, CanESM5) and stop at 2100 for most others; capped at 2100 so every model contributes over the same x-range. |
 | `HIST_END_YEAR`, `SSP_START_YEAR` | 2014, 2015 | Standard CMIP6 historical/scenario split. |
+| `FUTURE_START`, `FUTURE_END` | 2071, 2100 | User-specified end-of-century base period for panel 2/3, same length (30 yr) as the historical base period so the two std estimates are directly comparable. |
+| Panel 2/3 std series | `scaled` (the same variance-matched series plotted in panel 1), not raw `n34r` | User-confirmed explicitly rather than assumed: keeps panel 2/3 describing the same curves panel 1 plots. For panel 3 the choice is moot — the per-model `scale` factor is common to both periods and cancels in the ratio, so std(future)/std(hist) is identical whether computed from `n34r` or `scaled`. |
+| `BOOT_BLOCK_YEARS` | 2 | User-specified: a moving-block bootstrap with 24-month contiguous blocks (not an iid monthly resample, and not a block-mean-of-std scheme) — user-confirmed explicitly after an ambiguous initial request ("2-year bootstrap"). Preserves ENSO-driven month-to-month autocorrelation that iid resampling would destroy and bias the std estimate's spread. |
+| `N_BOOT` | 1000 | User-specified resample count for the block bootstrap. |
+| Std computed on monthly values, not annual means | — | User-confirmed explicitly: std uses the ~360 raw monthly values per 30-yr period, not a first pass to 30 annual means (which would remove intra-year/seasonal variance from the estimate). |
+| `BOOT_CI` | (2.5, 97.5) | 95% percentile interval of the bootstrap draw distribution. |
+| `BOOT_SEED` | 42 | Fixed seed for a reproducible figure — rerunning the script without changing the data reproduces identical error bars. |
+| Panel 2 layout | paired bars per model (`BAR_WIDTH=0.35` offset), not one flat 62-bar sequence | User-specified explicitly between the two options. |
+| `COLOR_HIST`, `COLOR_FUTURE` | `"0.4"`, `"firebrick"` | Historical matches panel 1's spaghetti-line gray (`LINE_COLOR`) for visual continuity; firebrick distinguishes the future period and avoids reusing panel 1's `steelblue` (already meaning "cross-model spread"). |
+| Panel 3 ratio direction | `std(future) / std(hist)` | User-specified explicitly between the two directions: values above 1 read as "ENSO variability increases under warming," matching the intuitive sense of the y=1 reference line. |
+| Panel 3 CI construction | pair the two periods' independent bootstrap draw arrays element-by-element (`boot_future / boot_hist`), not a fresh separate bootstrap | User-specified explicitly ("bootstrap the top and bottom separately") — reuses the draws already computed for panel 2, and treats the two 30-yr periods (non-overlapping in time) as independent so their bootstrap distributions can be divided pairwise to approximate the ratio's sampling distribution. |
+| Panel 3 model order | ascending by `ratio`, independent of panel 2's order (ascending by `std_hist`) | User-specified explicitly: each panel's x-axis order is defined by that panel's own statistic. |
 | Scale factor | `std(n34, per calendar month) / std(n34r, per calendar month)`, both over 1985-2014, both per model | User-specified formula: rescales the raw (unscaled) relative index back up to Niño-3.4-like variance, the RONI-recipe step `cmip6_n34r.py` deliberately omits from its raw output (see `specs/cmip6_n34r.md` §5). |
 | Member selection | prefer `r1i1p1f1`, else lowest common member | Not a scientific choice — an implementation default to get one continuous, single-realization trajectory per model. Spot-checked on 2 models (ACCESS-CM2, UKESM1-0-LL): the 2014/2015 seam is smooth at the member level, confirming no artifact from switching physical realizations across the join. |
 | Model set | all `source_id`s in `n34r_data/` with both historical+ssp585 (31 as of this session) | Changed mid-session from an initial fixed 20-model list (from a user-supplied model table) to "all models we have," per explicit user request — see Synchronization Log. |
@@ -110,12 +172,25 @@ has already written locally.
   and last few months of each segment are smoothed over a partial (shrinking)
   window rather than a full 10-year one — expected, not a bug; the window
   never reaches into the other segment.
+- **Panel 2/3 assume no missing months**: `block_bootstrap_std_draws` treats
+  `hist_vals`/`future_vals` as exactly 360 contiguous monthly values with no
+  gaps; a model with missing months in either 30-yr base period would silently
+  shrink `n` and change the effective block/CI width rather than raising an
+  error. Not observed in the current 31-model set.
+- **Panel 3's paired-draw ratio CI is an approximation, not an exact ratio
+  bootstrap**: `boot_ratio = boot_future / boot_hist` pairs the two periods'
+  bootstrap draws by array index (draw 0 with draw 0, etc.), which is
+  arbitrary since the two periods are independently resampled — this is
+  equivalent to treating the pairing as a random matching, valid because the
+  two draw arrays are independent and identically ordered only by RNG-draw
+  sequence, not by any shared structure.
 
 ## 7. Synchronization Log
 
 | Date | Code change | Spec updated |
 |------|-------------|---------------|
 | 2026-08-25 | `plot_n34r_relative.py` created and iterated over one session: fixed 20-model list → scan-all-available (31 models); added variance-matching scale factor (1985-2014 base, per calendar month); added cross-model spread band (10th-90th percentile, 10-yr centered rolling mean, computed separately either side of 2014/2015); fixed FGOALS-g3 historical/ssp585 time overlap; fixed band-hidden-behind-lines rendering bug; switched line color to uniform gray; added PNG output alongside PDF | Spec created (initial) |
+| 2026-08-25 | Added panel 2 (per-model std of scaled index, 1985-2014 vs. 2071-2100, paired error bars, 2-yr moving-block bootstrap 95% CI, models ordered by ascending historical std) and panel 3 (ratio std(future)/std(hist), single error bar per model, paired-draw bootstrap CI reusing panel 2's draws, y=1 reference line, models ordered by ascending ratio) — figure is now 3x1; added `FUTURE_START`/`FUTURE_END`, `BOOT_BLOCK_YEARS`, `N_BOOT`, `BOOT_CI`, `BOOT_SEED`, `BAR_WIDTH`, `COLOR_HIST`, `COLOR_FUTURE`, `block_bootstrap_std_draws()` | This update (§1, §3, §4, §4a new, §5, §6) |
 
 ## Verification Snippet
 

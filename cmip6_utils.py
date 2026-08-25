@@ -17,6 +17,12 @@ EXCLUDED_INSTITUTIONS = ["NIMS-KMA"]
 STORAGE_OPTIONS = {"token": "anon"}
 COMP = dict(zlib=True)
 
+# Niño 3.4 box: 190-240°E (170°W-120°W), 5°S-5°N.
+N34_LAT = slice(-5, 5)
+N34_LON = slice(190, 240)
+# Tropical-mean band for the relative Niño 3.4 index: 20°S-20°N, all longitudes.
+TROP_LAT = slice(-20, 20)
+
 
 def convert_to_cftime_no_leap(ds):
     if "time" not in ds.coords:
@@ -93,3 +99,44 @@ def open_member(zstore_path):
         ds = ds.sortby("time")
     ds = convert_to_cftime_no_leap(ds)
     return standardize_lonlat(ds)
+
+
+def n34_average(x):
+    """Cosine-latitude-weighted mean over the Niño 3.4 box (190-240°E, 5°S-5°N).
+
+    Unmasked: the Niño 3.4 box is 100% ocean on every model grid checked, so a
+    land mask would be a no-op here (unlike trop_average, which needs one).
+    """
+    x = x.sortby("lat")
+    weights = np.cos(np.deg2rad(x.lat))
+    y = x.sel(lon=N34_LON).sel(lat=N34_LAT).weighted(weights).mean(["lon", "lat"])
+    y.attrs = x.attrs.copy()
+    return y
+
+
+def ocean_mask(lon, lat):
+    """Boolean ocean mask (True = ocean) for a rectilinear lon/lat grid.
+
+    Built from the Natural Earth 1:110m land polygons via regionmask. Coastal
+    cells are assigned all-or-nothing (no fractional land weighting) — measured
+    against sftlf-fractional weighting and real tos on 7 rectilinear-grid CMIP6
+    models, the two differ by <0.001 K in the resulting relative index (see
+    specs/cmip6_n34r.md §5), so the added complexity of fractional weighting
+    is not justified.
+    """
+    import regionmask
+    land = regionmask.defined_regions.natural_earth_v5_0_0.land_110
+    return land.mask(lon, lat).isnull()
+
+
+def trop_average(x, ocean):
+    """Cosine-latitude-weighted, ocean-masked mean over 20°S-20°N, all longitudes.
+
+    x:     DataArray (..., lat, lon), sorted ascending by lat.
+    ocean: boolean DataArray (lat, lon), True = ocean (see ocean_mask), on the
+           same grid as x, already sorted to match.
+    """
+    weights = np.cos(np.deg2rad(x.lat)) * ocean
+    y = x.sel(lat=TROP_LAT).weighted(weights.sel(lat=TROP_LAT)).mean(["lon", "lat"])
+    y.attrs = x.attrs.copy()
+    return y

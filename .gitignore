@@ -1,6 +1,8 @@
 # Climate data files (large binaries — regenerate by running the scripts)
 n34_data/
+n34r_data/
 ar6_data/
+lens2_n34r_data/
 *.nc
 *.zarr
 *.h5

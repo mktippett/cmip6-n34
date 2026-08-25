@@ -18,7 +18,11 @@ Grid: 192 lat × 288 lon, lat −90 to 90, lon 0 to 358.75°E (0–360 conventio
 import xarray as xr
 
 # Re-export from cmip6_utils to keep the lens2 scripts self-contained
-from cmip6_utils import COMP, append_run_summary  # noqa: F401
+from cmip6_utils import (  # noqa: F401
+    COMP, append_run_summary,
+    N34_LAT, N34_LON, TROP_LAT,
+    n34_average, ocean_mask, trop_average,
+)
 
 S3_BUCKET        = "ncar-cesm2-lens"
 S3_STORAGE_OPTIONS = {"anon": True}

@@ -1,5 +1,40 @@
 # Project Notes
 
+## 2026-08-24 — lens2_n34r.py
+- Git: 9fb939f  |  Written: 3  |  Skipped (existed): 1
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-08-24 — cmip6_n34r.py
+- Git: 9fb939f  |  Written: 3  |  Skipped (existed): 13
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-08-24 — cmip6_n34r.py
+- Git: 9fb939f  |  Written: 3  |  Skipped (existed): 5
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-08-24 — cmip6_n34r.py
+- Git: 9fb939f  |  Written: 6  |  Skipped (existed): 10
+- Dropped (NaN): EC-Earth-Consortium EC-Earth3 historical r2i1p1f1, EC-Earth-Consortium EC-Earth3 historical r7i1p1f1, EC-Earth-Consortium EC-Earth3 historical r14i1p1f1, EC-Earth-Consortium EC-Earth3 historical r10i1p1f1, EC-Earth-Consortium EC-Earth3 historical r12i1p1f1, EC-Earth-Consortium EC-Earth3 historical r16i1p1f1, EC-Earth-Consortium EC-Earth3 historical r17i1p1f1, EC-Earth-Consortium EC-Earth3 historical r18i1p1f1, EC-Earth-Consortium EC-Earth3 historical r21i1p1f1, EC-Earth-Consortium EC-Earth3 historical r20i1p1f1, EC-Earth-Consortium EC-Earth3 historical r19i1p1f1, EC-Earth-Consortium EC-Earth3 historical r23i1p1f1, EC-Earth-Consortium EC-Earth3 historical r22i1p1f1, EC-Earth-Consortium EC-Earth3 historical r24i1p1f1, EC-Earth-Consortium EC-Earth3 historical r25i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r25i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r12i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r20i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r22i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r24i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r2i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r7i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r14i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r10i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r16i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r17i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r18i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r19i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r21i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r23i1p1f1, EC-Earth-Consortium EC-Earth3 abrupt-4xCO2 r3i1p1f1, EC-Earth-Consortium EC-Earth3 piControl r2i1p1f1, EC-Earth-Consortium EC-Earth3-Veg historical r5i1p1f1, EC-Earth-Consortium EC-Earth3-Veg ssp245 r5i1p1f1
+- No members: 0
+
+## 2026-08-24 — cmip6_n34r.py
+- Git: 9fb939f  |  Written: 240  |  Skipped (existed): 8
+- Dropped (NaN): EC-Earth-Consortium EC-Earth3 historical r2i1p1f1, EC-Earth-Consortium EC-Earth3 historical r7i1p1f1, EC-Earth-Consortium EC-Earth3 historical r14i1p1f1, EC-Earth-Consortium EC-Earth3 historical r10i1p1f1, EC-Earth-Consortium EC-Earth3 historical r12i1p1f1, EC-Earth-Consortium EC-Earth3 historical r16i1p1f1, EC-Earth-Consortium EC-Earth3 historical r17i1p1f1, EC-Earth-Consortium EC-Earth3 historical r18i1p1f1, EC-Earth-Consortium EC-Earth3 historical r21i1p1f1, EC-Earth-Consortium EC-Earth3 historical r20i1p1f1, EC-Earth-Consortium EC-Earth3 historical r19i1p1f1, EC-Earth-Consortium EC-Earth3 historical r23i1p1f1, EC-Earth-Consortium EC-Earth3 historical r22i1p1f1, EC-Earth-Consortium EC-Earth3 historical r24i1p1f1, EC-Earth-Consortium EC-Earth3 historical r25i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r25i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r12i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r20i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r22i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r24i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r2i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r7i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r14i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r10i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r16i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r17i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r18i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r19i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r21i1p1f1, EC-Earth-Consortium EC-Earth3 ssp245 r23i1p1f1, EC-Earth-Consortium EC-Earth3 abrupt-4xCO2 r3i1p1f1, EC-Earth-Consortium EC-Earth3 piControl r2i1p1f1, EC-Earth-Consortium EC-Earth3-Veg historical r5i1p1f1, EC-Earth-Consortium EC-Earth3-Veg ssp245 r5i1p1f1
+- No members: 0
+
+## 2026-08-24 — lens2_n34r.py
+- Git: 9fb939f  |  Written: 1  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
+## 2026-08-24 — cmip6_n34r.py
+- Git: 9fb939f  |  Written: 8  |  Skipped (existed): 0
+- Dropped (NaN): 0
+- No members: 0
+
 ## 2026-06-26 — lens2_ar6.py
 - Git: 2beab39  |  Written: 4  |  Skipped (existed): 0
 - Dropped (NaN): 0
